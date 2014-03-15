@@ -339,6 +339,11 @@ containing all of the active state from Nagios. Included are all hosts,
 services, downtimes, comments, and other things that may be in the
 global state object.
 
+problems
+~~~~~
+This methods takes no parameters. It returns a JSON object containing
+all services that do not have an OK status. 
+
 submit_result
 ~~~~~~~~~~~~~
 If you are using passive service checks or you just want to submit a

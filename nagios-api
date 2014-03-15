@@ -69,14 +69,12 @@ def _send_json(req, success, content):
 
 def json_error(req, msg):
     '''Return an error message to the caller.
-
     '''
     return _send_json(req, False, msg)
 
 
 def json_response(req, msg):
     '''Return an error message to the caller.
-
     '''
     return _send_json(req, True, msg)
 
@@ -130,7 +128,7 @@ def http_host(req, objid, reqobj):
     for host_key in host_keys:
         value = getattr(NAGIOS.hosts[objid], host_key)
         if type(value) == types.StringType:
-            ret[host_key] = value 
+            ret[host_key] = value
         # return comment and downtime data too, if either exists
         elif type(value) == dict:
             for k, v in value.iteritems():
@@ -162,6 +160,38 @@ def http_service(req, objid, reqobj):
             value = getattr(NAGIOS.services[objid][service], service_key)
             if type(value) == types.StringType:
                 ret[service][service_key] = value
+    return json_response(req, ret)
+
+
+def http_problems(req, objid, reqobj):
+    """Return nagios services that are not in OK state.
+    When monitoring real-time issues with the API.
+    """
+    global NAGIOS
+    ret = {}
+    if not objid:
+        # Loop through hosts
+        for host in NAGIOS.services.keys():
+            # Loop through services
+            for service in NAGIOS.services[host]:
+                services = {service: {}}
+                service_keys = [x for x in dir(NAGIOS.services[host][service]) if not x.startswith('__')]
+
+                # Filter out everything but services
+                for service_key in service_keys:
+                    value = getattr(NAGIOS.services[host][service], service_key)
+                    if isinstance(value, types.StringType):
+                        services[service][service_key] = value
+
+                # Check if the service has an OK state integer.
+                for defined_service_key in services[service]:
+                    if isinstance(value, types.StringType) and defined_service_key == 'current_state':
+                        if not str(getattr(NAGIOS.services[host][service], 'current_state')) == "0":
+                            if not ret.__contains__(host):
+                                 ret[host] = {}
+                            for key, value in services.items():
+                                 ret[host][key] = value
+
     return json_response(req, ret)
 
 
@@ -276,7 +306,7 @@ def http_schedule_downtime(req, objid, reqobj):
     except ValueError:
         dur = 0
     end_time = reqobj.get('end_time', start_time + dur)
-    
+
     obj = NAGIOS.host_or_service(host, service)
     if obj is None:
         return json_error(req, 'Host or service not found.')
@@ -335,7 +365,7 @@ def http_cancel_downtime(req, objid, reqobj):
     for dt in dts:
         if res is None:
             res = True  # So we know if we found any.
-        res = cancel_downtime(dt) and res        
+        res = cancel_downtime(dt) and res
 
     if res is not None:
         if res:
@@ -449,7 +479,7 @@ def http_acknowledge_problem(req, objid, reqobj):
         return json_error(req, 'Invalid value provided for one or more of sticky, notify or persistent')
 
     if obj.service is not None:
-        if not send_nagios_command('ACKNOWLEDGE_SVC_PROBLEM', host, service, 
+        if not send_nagios_command('ACKNOWLEDGE_SVC_PROBLEM', host, service,
                                     sticky, notify, persistent, author, comment):
             return json_error(req, 'Failed sending command to Nagios.')
     else:
@@ -531,7 +561,7 @@ def http_add_comment(req, objid, reqobj):
         return json_error(req, 'Invalid value provided for persistent')
 
     if obj.service is not None:
-        if not send_nagios_command('ADD_SVC_COMMENT', host, service, 
+        if not send_nagios_command('ADD_SVC_COMMENT', host, service,
                                     persistent, author, comment):
             return json_error(req, 'Failed sending command to Nagios.')
     else:
